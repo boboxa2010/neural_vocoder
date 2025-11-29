@@ -1,0 +1,77 @@
+import torch.nn as nn
+
+
+class MSDSubBlock(nn.Module):
+    def __init__(self, negatival_slope: float = 0.1):
+        super().__init__()
+
+        self.activation = nn.LeakyReLU(negative_slope=negatival_slope)
+
+        self.blocks = nn.ModuleList(
+            [
+                nn.Conv1d(1, 16, 15, 1, 7),
+                nn.Conv1d(16, 64, 41, 4, 20, groups=4),
+                nn.Conv1d(64, 256, 41, 4, 20, groups=16),
+                nn.Conv1d(256, 1024, 41, 4, 20, groups=64),
+                nn.Conv1d(1024, 1024, 41, 4, 20, groups=256),
+                nn.Conv1d(1024, 1024, 5, 1, 2),
+            ]
+        )
+
+        self.final = nn.Conv1d(1024, 1, 3, 1, 1)
+
+    def forward(self, x):
+        """
+        Args:
+            x (Tensor): (B, C, T)
+
+        Returns:
+            output (Tensor): (B, 1, T')
+            activations (list[Tensor])
+        """
+
+        activations = []
+        for block in self.blocks:
+            x = block(x)
+            x = self.activation(x)
+            activations.append(x)
+
+        x = self.final(x)
+        activations.append(x)
+
+        return x.view(x.size(0), -1), activations
+
+
+class MSD(nn.Module):
+    def __init__(self, n_blocks: int = 3):
+        super().__init__()
+
+        self.blocks = nn.ModuleList([MSDSubBlock() for _ in range(n_blocks)])
+
+        # using hierarchical avg pooling for more robustness and fewer parameters
+        self.avg_pools = nn.ModuleList(
+            [nn.AvgPool1d(4, 2, 2) for _ in range(n_blocks - 1)]
+        )
+
+    def forward(self, x):
+        """
+        Args:
+            x (Tensor): (B, C, T)
+
+        Returns:
+            outputs (list[Tensor])
+            activations (list[list[Tensor]])
+        """
+
+        outputs = []
+        activations = []
+        for block in self.blocks:
+            if len(activations) > 0:
+                x = self.avg_pools[len(activations) - 1](x)
+
+            output, subactivations = block(x)
+
+            outputs.append(output)
+            activations.append(subactivations)
+
+        return outputs, activations
