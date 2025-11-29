@@ -75,7 +75,7 @@ class MPDSubBlock(nn.Module):
         return x.view(x.size(0), -1), activations
 
 
-class MSD(nn.Module):
+class MPD(nn.Module):
     def __init__(self, periods: list[int]):
         super().__init__()
 
