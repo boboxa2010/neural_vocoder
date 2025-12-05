@@ -73,14 +73,19 @@ class BaseDataset(Dataset):
                 (a single dataset element).
         """
         data_dict = self._index[ind]
-        audio_path = data_dict["path"]
-        audio = self.load_audio(audio_path)
-        text = data_dict["text"]
 
-        original_spectrogram = self.get_spectrogram(audio)
+        audio_path = data_dict.get("path", None)
+        text = data_dict.get("text")
+
+        if audio_path:
+            audio = self.load_audio(audio_path)
+            original_spectrogram = self.get_spectrogram(audio)
+        else:
+            audio = None
+            original_spectrogram = None
 
         instance_data = {
-            "original_audio": audio.clone(),
+            "original_audio": audio.clone() if audio is not None else None,
             "original_spectrogram": original_spectrogram,
             "audio": audio,
             "text": text,
@@ -89,8 +94,10 @@ class BaseDataset(Dataset):
 
         instance_data = self.preprocess_data(instance_data)
 
-        spectrogram = self.get_spectrogram(instance_data["audio"])
-        instance_data["spectrogram"] = spectrogram
+        if instance_data["audio"] is not None:
+            instance_data["spectrogram"] = self.get_spectrogram(instance_data["audio"])
+        else:
+            instance_data["spectrogram"] = None
 
         return instance_data
 
@@ -118,6 +125,8 @@ class BaseDataset(Dataset):
         Returns:
             spectrogram (Tensor): spectrogram for the audio.
         """
+        if audio is None:
+            return None
         return self.instance_transforms["get_spectrogram"](audio)
 
     def preprocess_data(self, instance_data):
@@ -138,9 +147,10 @@ class BaseDataset(Dataset):
             for transform_name in self.instance_transforms.keys():
                 if transform_name == "get_spectrogram":
                     continue  # skip special key
-                instance_data[transform_name] = self.instance_transforms[
-                    transform_name
-                ](instance_data[transform_name])
+                if instance_data.get(transform_name) is not None:
+                    instance_data[transform_name] = self.instance_transforms[
+                        transform_name
+                    ](instance_data[transform_name])
         return instance_data
 
     @staticmethod
@@ -166,8 +176,9 @@ class BaseDataset(Dataset):
         """
         initial_size = len(index)
         if max_audio_length is not None:
-            exceeds_audio_length = (
-                np.array([el["audio_len"] for el in index]) >= max_audio_length
+            audio_lengths = [el.get("audio_len", None) for el in index]
+            exceeds_audio_length = np.array(
+                [(l is not None and l >= max_audio_length) for l in audio_lengths]
             )
             _total = exceeds_audio_length.sum()
             logger.info(
@@ -175,18 +186,18 @@ class BaseDataset(Dataset):
                 f"{max_audio_length} seconds. Excluding them."
             )
         else:
-            exceeds_audio_length = False
+            exceeds_audio_length = np.array([False] * len(index))
 
-        initial_size = len(index)
         if max_text_length is not None:
-            exceeds_text_length = np.array([len(el) for el in index]) >= max_text_length
+            text_lengths = [len(el.get("text", "")) for el in index]
+            exceeds_text_length = np.array([l >= max_text_length for l in text_lengths])
             _total = exceeds_text_length.sum()
             logger.info(
                 f"{_total} ({_total / initial_size:.1%}) records are longer then "
                 f"{max_text_length} characters. Excluding them."
             )
         else:
-            exceeds_text_length = False
+            exceeds_text_length = np.array([False] * len(index))
 
         records_to_filter = exceeds_text_length | exceeds_audio_length
 
@@ -211,16 +222,9 @@ class BaseDataset(Dataset):
                 such as label and object path.
         """
         for entry in index:
-            assert "path" in entry, (
-                "Each dataset item should include field 'path'" " - path to audio file."
-            )
             assert "text" in entry, (
                 "Each dataset item should include field 'text'"
                 " - object ground-truth transcription."
-            )
-            assert "audio_len" in entry, (
-                "Each dataset item should include field 'audio_len'"
-                " - length of the audio."
             )
 
     @staticmethod
@@ -237,7 +241,9 @@ class BaseDataset(Dataset):
                 of the dataset. The dict has required metadata information,
                 such as label and object path.
         """
-        return sorted(index, key=lambda x: x["audio_len"])
+        if any("audio_len" in e and e["audio_len"] is not None for e in index):
+            return sorted(index, key=lambda x: x.get("audio_len", float("inf")))
+        return index
 
     @staticmethod
     def _shuffle_and_limit_index(index, limit, shuffle_index):
