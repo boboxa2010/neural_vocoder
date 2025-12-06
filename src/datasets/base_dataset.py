@@ -20,7 +20,7 @@ class BaseDataset(Dataset):
     def __init__(
         self,
         index,
-        target_sr=22500,
+        target_sr=22050,
         limit=None,
         max_audio_length=None,
         max_text_length=None,
