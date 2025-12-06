@@ -1,3 +1,4 @@
+import torch
 from torch import Tensor, nn
 
 
@@ -16,7 +17,7 @@ class DiscriminatorAdvLoss(nn.Module):
         Returns:
             loss (Tensor)
         """
-        return self.loss(discriminator_true, 1) + self.loss(discriminator_fake, 0)
+        return self.loss(discriminator_true, torch.ones_like(discriminator_true)) + self.loss(discriminator_fake, torch.zeros_like(discriminator_fake))
 
 
 class DiscriminatorLoss(nn.Module):

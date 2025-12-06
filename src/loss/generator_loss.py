@@ -1,3 +1,4 @@
+import torch
 from torch import Tensor, nn
 
 
@@ -18,7 +19,7 @@ class GeneratorAdvLoss(nn.Module):
 
         loss = 0.0
         for fake in discriminators_fake:
-            loss += self.loss(fake, 1)
+            loss += self.loss(fake, torch.ones_like(fake))
         return loss
 
 
@@ -105,5 +106,8 @@ class GeneratorLoss(nn.Module):
         return {
             "loss": adv_loss
             + self.feature_weight * feature_loss
-            + self.mel_weight * mel_loss
+            + self.mel_weight * mel_loss,
+            "adv_loss": adv_loss,
+            "feature_loss": feature_loss,
+            "mel_loss": mel_loss,
         }
