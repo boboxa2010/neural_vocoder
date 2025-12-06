@@ -1,20 +1,28 @@
 import torch.nn as nn
 
+from src.model.hifi_gan_layers.normalization import SpectralNorm, WeightNorm
+
 
 class MSDSubBlock(nn.Module):
-    def __init__(self, negatival_slope: float = 0.1):
+    def __init__(self, negatival_slope: float = 0.1, norm_type: str | None = None):
         super().__init__()
 
         self.activation = nn.LeakyReLU(negative_slope=negatival_slope)
 
+        Norm = nn.Identity
+        if norm_type == "weight":
+            Norm = WeightNorm
+        elif norm_type == "spectral":
+            Norm = SpectralNorm
+
         self.blocks = nn.ModuleList(
             [
-                nn.Conv1d(1, 16, 15, 1, 7),
-                nn.Conv1d(16, 64, 41, 4, 20, groups=4),
-                nn.Conv1d(64, 256, 41, 4, 20, groups=16),
-                nn.Conv1d(256, 1024, 41, 4, 20, groups=64),
-                nn.Conv1d(1024, 1024, 41, 4, 20, groups=256),
-                nn.Conv1d(1024, 1024, 5, 1, 2),
+                Norm(nn.Conv1d(1, 16, 15, 1, 7)),
+                Norm(nn.Conv1d(16, 64, 41, 4, 20, groups=4)),
+                Norm(nn.Conv1d(64, 256, 41, 4, 20, groups=16)),
+                Norm(nn.Conv1d(256, 1024, 41, 4, 20, groups=64)),
+                Norm(nn.Conv1d(1024, 1024, 41, 4, 20, groups=256)),
+                Norm(nn.Conv1d(1024, 1024, 5, 1, 2)),
             ]
         )
 
@@ -46,7 +54,10 @@ class MSD(nn.Module):
     def __init__(self, n_blocks: int = 3):
         super().__init__()
 
-        self.blocks = nn.ModuleList([MSDSubBlock() for _ in range(n_blocks)])
+        norm_type = lambda i: "spectral" if i == 0 else "weight"
+        self.blocks = nn.ModuleList(
+            [MSDSubBlock(norm_type=norm_type(i)) for i in range(n_blocks)]
+        )
 
         # using hierarchical avg pooling for more robustness and fewer parameters
         self.avg_pools = nn.ModuleList(
