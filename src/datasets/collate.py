@@ -1,6 +1,15 @@
 import torch
 
 
+def collate_list(items: list[dict], key: str) -> list:
+    return [item[key] for item in items]
+
+
+def collate_tensor(items, key: str) -> torch.Tensor:
+    # suppose that all tensors have the same shape in the batch
+    return torch.stack([item[key] for item in items])
+
+
 def collate_fn(dataset_items: list[dict]):
     """
     Collate and pad fields in the dataset items.
@@ -14,12 +23,15 @@ def collate_fn(dataset_items: list[dict]):
             of the tensors.
     """
 
-    result_batch = {}
+    batch = {"text": collate_list(dataset_items, "text")}
 
-    # example of collate_fn
-    result_batch["data_object"] = torch.vstack(
-        [elem["data_object"] for elem in dataset_items]
-    )
-    result_batch["labels"] = torch.tensor([elem["labels"] for elem in dataset_items])
+    if "audio_path" in dataset_items[0]:
+        batch["audio_path"] = collate_list(dataset_items, "audio_path")
 
-    return result_batch
+    if "audio" in dataset_items[0]:
+        batch["audio"] = collate_tensor(dataset_items, "audio")
+
+    if "spectrogram" in dataset_items[0]:
+        batch["spectrogram"] = collate_tensor(dataset_items, "spectrogram")
+
+    return batch
