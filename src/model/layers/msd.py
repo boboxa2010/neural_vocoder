@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from src.model.hifi_gan_layers.normalization import SpectralNorm, WeightNorm
+from src.model.layers.normalization import SpectralNorm, WeightNorm
 
 
 class MSDSubBlock(nn.Module):
@@ -51,12 +51,17 @@ class MSDSubBlock(nn.Module):
 
 
 class MSD(nn.Module):
-    def __init__(self, n_blocks: int = 3):
+    def __init__(
+        self, n_blocks: int = 3, negatival_slope: float = 0.1, use_norm: bool = True
+    ):
         super().__init__()
 
-        norm_type = lambda i: "spectral" if i == 0 else "weight"
+        norm_type = lambda i: None
+        if use_norm:
+            norm_type = lambda i: "spectral" if i == 0 else "weight"
+
         self.blocks = nn.ModuleList(
-            [MSDSubBlock(norm_type=norm_type(i)) for i in range(n_blocks)]
+            [MSDSubBlock(negatival_slope, norm_type(i)) for i in range(n_blocks)]
         )
 
         # using hierarchical avg pooling for more robustness and fewer parameters

@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from src.model.hifi_gan_layers.normalization import SpectralNorm, WeightNorm
+from src.model.layers.normalization import SpectralNorm, WeightNorm
 
 
 class MPDSubBlock(nn.Module):
@@ -96,11 +96,19 @@ class MPDSubBlock(nn.Module):
 
 
 class MPD(nn.Module):
-    def __init__(self, periods: list[int], norm_type: str | None = "weigth"):
+    def __init__(
+        self,
+        periods: list[int],
+        negative_slope: float = 0.1,
+        norm_type: str | None = "weight",
+    ):
         super().__init__()
 
         self.blocks = nn.ModuleList(
-            [MPDSubBlock(period, norm_type=norm_type) for period in periods]
+            [
+                MPDSubBlock(period, norm_type=norm_type, negative_slope=negative_slope)
+                for period in periods
+            ]
         )
 
     def forward(self, x):
