@@ -1,8 +1,8 @@
 import logging
 import random
 
-import torch
 import numpy as np
+import torch
 import torchaudio
 from torch.utils.data import Dataset
 
@@ -22,7 +22,7 @@ class BaseDataset(Dataset):
         self,
         index,
         target_sr=22050,
-        chunk_size=None,
+        chunk_size=8192,
         limit=None,
         max_audio_length=None,
         max_text_length=None,
@@ -122,7 +122,7 @@ class BaseDataset(Dataset):
         if audio.size(0) >= self.chunk_size:
             max_start = audio.size(0) - self.chunk_size
             start = random.randint(0, max_start)
-            audio = audio[start:start + self.chunk_size]
+            audio = audio[start : start + self.chunk_size]
         else:
             pad_amount = self.chunk_size - audio.size(0)
             audio = torch.nn.functional.pad(audio, (0, pad_amount))
