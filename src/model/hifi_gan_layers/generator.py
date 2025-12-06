@@ -1,30 +1,37 @@
 import torch
 import torch.nn as nn
 
+from src.model.hifi_gan_layers.normalization import SpectralNorm, WeightNorm
 
 class ResSubBlock(nn.Module):
     def __init__(
-        self, channels: int, k_r: int, D_r: tuple[int, int], negative_slope: float = 0.1
+        self, channels: int, k_r: int, D_r: tuple[int, int], negative_slope: float = 0.1, norm_type: str | None = None
     ):
         super().__init__()
 
+        Norm = nn.Identity
+        if norm_type == "weight":
+            Norm = WeightNorm
+        elif norm_type == "spectral":
+            Norm = SpectralNorm
+
         self.activation = nn.LeakyReLU(negative_slope=negative_slope)
 
-        self.conv1 = nn.Conv1d(
+        self.conv1 = Norm(nn.Conv1d(
             in_channels=channels,
             out_channels=channels,
             kernel_size=k_r,
             dilation=D_r[0],
             padding=(k_r * D_r[0] - D_r[0]) // 2,
-        )
+        ))
 
-        self.conv2 = nn.Conv1d(
+        self.conv2 = Norm(nn.Conv1d(
             in_channels=channels,
             out_channels=channels,
             kernel_size=k_r,
             dilation=D_r[1],
             padding=(k_r * D_r[1] - D_r[1]) // 2,
-        )
+        ))
 
     def forward(self, x):
         """
@@ -44,12 +51,12 @@ class ResSubBlock(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, channels: int, k: int, D_r: list[tuple[int, int]]):
+    def __init__(self, channels: int, k: int, D_r: list[tuple[int, int]], norm_type: str | None = None):
         super().__init__()
 
         self.blocks = nn.ModuleList()
         for m in range(len(D_r)):
-            self.blocks.append(ResSubBlock(channels, k, D_r[m]))
+            self.blocks.append(ResSubBlock(channels, k, D_r[m], norm_type=norm_type))
 
     def forward(self, x):
         """
@@ -69,12 +76,12 @@ class ResBlock(nn.Module):
 
 
 class MRF(nn.Module):
-    def __init__(self, channels: int, k_r: list[int], D_r: list[tuple[int, int]]):
+    def __init__(self, channels: int, k_r: list[int], D_r: list[tuple[int, int]], norm_type: str | None = None):
         super().__init__()
 
         self.blocks = nn.ModuleList()
         for k_i in k_r:
-            self.blocks.append(ResBlock(channels, k_i, D_r))
+            self.blocks.append(ResBlock(channels, k_i, D_r, norm_type=norm_type))
 
     def forward(self, x):
         """
@@ -104,40 +111,47 @@ class Generator(nn.Module):
         negative_slope: float = 0.1,
         expand_kernel_size: int = 7,
         project_kernel_size: int = 7,
+        norm_type: str | None = "weight"
     ):
         super().__init__()
 
-        self.expand = nn.Conv1d(
+        Norm = nn.Identity
+        if norm_type == "weight":
+            Norm = WeightNorm
+        elif norm_type == "spectral":
+            Norm = SpectralNorm
+
+        self.expand = Norm(nn.Conv1d(
             in_channels=in_channels,
             out_channels=h_u,
             kernel_size=expand_kernel_size,
             padding=(expand_kernel_size - 1) // 2,
-        )
+        ))
 
         self.blocks = nn.ModuleList()
         for l in range(len(k_u)):
             self.blocks.append(
                 nn.Sequential(
                     nn.LeakyReLU(negative_slope=negative_slope),
-                    nn.ConvTranspose1d(
+                    Norm(nn.ConvTranspose1d(
                         in_channels=h_u // (2**l),
                         out_channels=h_u // (2 ** (l + 1)),
                         kernel_size=k_u[l],
                         stride=k_u[l] // 2,
                         padding=(k_u[l] - k_u[l] // 2) // 2,
-                    ),
-                    MRF(h_u // (2 ** (l + 1)), k_r, D_r),
+                    )),
+                    MRF(h_u // (2 ** (l + 1)), k_r, D_r, norm_type=norm_type),
                 )
             )
 
         self.project = nn.Sequential(
             nn.LeakyReLU(negative_slope=negative_slope),
-            nn.Conv1d(
+            Norm(nn.Conv1d(
                 in_channels=h_u // (2 ** len(k_u)),
                 out_channels=1,
                 kernel_size=project_kernel_size,
                 padding=(project_kernel_size - 1) // 2,
-            ),
+            )),
             nn.Tanh(),
         )
 
