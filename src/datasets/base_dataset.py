@@ -1,6 +1,7 @@
 import logging
 import random
 
+import torch
 import numpy as np
 import torchaudio
 from torch.utils.data import Dataset
@@ -21,6 +22,7 @@ class BaseDataset(Dataset):
         self,
         index,
         target_sr=22050,
+        chunk_size=None,
         limit=None,
         max_audio_length=None,
         max_text_length=None,
@@ -55,6 +57,7 @@ class BaseDataset(Dataset):
         self._index: list[dict] = index
 
         self.target_sr = target_sr
+        self.chunk_size = chunk_size
         self.instance_transforms = instance_transforms
 
     def __getitem__(self, ind):
@@ -109,7 +112,22 @@ class BaseDataset(Dataset):
         target_sr = self.target_sr
         if sr != target_sr:
             audio_tensor = torchaudio.functional.resample(audio_tensor, sr, target_sr)
-        return audio_tensor
+
+        if self.chunk_size is None:
+            return audio_tensor
+
+        # use chunk mode in order to stabilies training process and imporove training speed
+        audio = audio_tensor.squeeze(0)
+
+        if audio.size(0) >= self.chunk_size:
+            max_start = audio.size(0) - self.chunk_size
+            start = random.randint(0, max_start)
+            audio = audio[start:start + self.chunk_size]
+        else:
+            pad_amount = self.chunk_size - audio.size(0)
+            audio = torch.nn.functional.pad(audio, (0, pad_amount))
+
+        return audio.unsqueeze(0)
 
     def get_spectrogram(self, audio):
         """
