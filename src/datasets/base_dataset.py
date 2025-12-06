@@ -79,14 +79,10 @@ class BaseDataset(Dataset):
 
         if audio_path:
             audio = self.load_audio(audio_path)
-            original_spectrogram = self.get_spectrogram(audio)
         else:
             audio = None
-            original_spectrogram = None
 
         instance_data = {
-            "original_audio": audio.clone() if audio is not None else None,
-            "original_spectrogram": original_spectrogram,
             "audio": audio,
             "text": text,
             "audio_path": audio_path,
@@ -125,7 +121,7 @@ class BaseDataset(Dataset):
         Returns:
             spectrogram (Tensor): spectrogram for the audio.
         """
-        if audio is None:
+        if audio is None or self.instance_transforms is None:
             return None
         return self.instance_transforms["get_spectrogram"](audio)
 

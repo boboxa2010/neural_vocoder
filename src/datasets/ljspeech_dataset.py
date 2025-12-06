@@ -58,7 +58,7 @@ class LJSpeechDataset(BaseDataset):
 
         with train_index_path.open("w") as f:
             json.dump(train_index, f, indent=2)
-        with val_index_path.open() as f:
+        with val_index_path.open("w") as f:
             json.dump(val_index, f, indent=2)
 
         return train_index if part == "train" else val_index
