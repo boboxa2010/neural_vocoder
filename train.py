@@ -45,10 +45,15 @@ def main(config):
     loss_function = instantiate(config.loss_function).to(device)
     metrics = instantiate(config.metrics)
 
-    # build optimizer, learning rate scheduler
-    trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = instantiate(config.optimizer, params=trainable_params)
-    lr_scheduler = instantiate(config.lr_scheduler, optimizer=optimizer)
+    # build optimizers, learning rate schedulers
+    generator_params = filter(lambda p: p.requires_grad, model.generator.parameters())
+    discriminator_params = list(model.mpd.parameters()) + list(model.msd.parameters())
+    
+    optimizer_g = instantiate(config.optimizer_g, params=generator_params)
+    optimizer_d = instantiate(config.optimizer_d, params=discriminator_params)
+
+    lr_scheduler_g = instantiate(config.lr_scheduler_g, optimizer=optimizer_g)
+    lr_scheduler_d = instantiate(config.lr_scheduler_d, optimizer=optimizer_d)
 
     # epoch_len = number of iterations for iteration-based training
     # epoch_len = None or len(dataloader) for epoch-based training
@@ -58,8 +63,10 @@ def main(config):
         model=model,
         criterion=loss_function,
         metrics=metrics,
-        optimizer=optimizer,
-        lr_scheduler=lr_scheduler,
+        optimizer_g=optimizer_g,
+        optimizer_d=optimizer_d,
+        lr_scheduler_g=lr_scheduler_g,
+        lr_scheduler_d=lr_scheduler_d,
         config=config,
         device=device,
         dataloaders=dataloaders,
