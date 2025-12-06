@@ -4,7 +4,7 @@ from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from src.metrics.base_metric import BaseMetric
 
 
-class STOI(BaseMetric):
+class PESQ(BaseMetric):
     def __init__(self, fs, mode, device: str = "cpu", *args, **kwargs):
         super().__init__(*args, **kwargs)
 
