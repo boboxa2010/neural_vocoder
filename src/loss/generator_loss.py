@@ -81,8 +81,8 @@ class GeneratorLoss(nn.Module):
         self,
         feature_weight: float = 2.0,
         mel_weight: float = 45.0,
-        normalize_adv: bool = True,
-        normalize_feature: bool = True,
+        normalize_adv: bool = False,
+        normalize_feature: bool = False,
     ):
         super().__init__()
 
