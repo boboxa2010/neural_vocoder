@@ -3,9 +3,10 @@ from torch import Tensor, nn
 
 
 class GeneratorAdvLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, normalize: bool = True):
         super().__init__()
 
+        self.normalize = normalize
         self.loss = nn.MSELoss()
 
     def forward(self, discriminators_fake: list[Tensor]):
@@ -20,13 +21,17 @@ class GeneratorAdvLoss(nn.Module):
         loss = 0.0
         for fake in discriminators_fake:
             loss += self.loss(fake, torch.ones_like(fake))
+
+        if self.normalize:
+            loss /= len(discriminators_fake)
         return loss
 
 
 class FeatureLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, normalize: bool = True):
         super().__init__()
 
+        self.normalize = normalize
         self.loss = nn.L1Loss()
 
     def forward(
@@ -47,6 +52,9 @@ class FeatureLoss(nn.Module):
                 features_fake[discriminator], features_true[discriminator]
             ):
                 loss += self.loss(prediction, target)
+
+        if self.normalize:
+            loss /= len(features_fake)
         return loss
 
 
@@ -69,14 +77,20 @@ class MelLoss(nn.Module):
 
 
 class GeneratorLoss(nn.Module):
-    def __init__(self, feature_weight: float = 2.0, mel_weight: float = 45.0):
+    def __init__(
+        self,
+        feature_weight: float = 2.0,
+        mel_weight: float = 45.0,
+        normalize_adv: bool = True,
+        normalize_feature: bool = True,
+    ):
         super().__init__()
 
         self.feature_weight = feature_weight
         self.mel_weight = mel_weight
 
-        self.adv_loss = GeneratorAdvLoss()
-        self.feature_loss = FeatureLoss()
+        self.adv_loss = GeneratorAdvLoss(normalize=normalize_adv)
+        self.feature_loss = FeatureLoss(normalize=normalize_feature)
         self.mel_loss = MelLoss()
 
     def forward(
@@ -104,10 +118,10 @@ class GeneratorLoss(nn.Module):
         mel_loss = self.mel_loss(mel_fake, mel_true)
 
         return {
-            "generator_loss": adv_loss
+            "g_loss": adv_loss
             + self.feature_weight * feature_loss
             + self.mel_weight * mel_loss,
-            "generator_adv_loss": adv_loss,
-            "generator_feature_loss": feature_loss,
-            "generator_mel_loss": mel_loss,
+            "g_adv_loss": adv_loss,
+            "g_feature_loss": feature_loss,
+            "g_mel_loss": mel_loss,
         }
