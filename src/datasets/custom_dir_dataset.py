@@ -29,5 +29,4 @@ class CustomDirDataset(BaseDataset):
             if len(entry) > 0:
                 data.append(entry)
 
-            print(entry.values())
         super().__init__(data, *args, **kwargs)

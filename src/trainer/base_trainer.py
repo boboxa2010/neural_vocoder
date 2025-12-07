@@ -32,6 +32,7 @@ class BaseTrainer:
         epoch_len=None,
         skip_oom=True,
         batch_transforms=None,
+        instance_transforms=None,
     ):
         """
         Args:
@@ -80,6 +81,7 @@ class BaseTrainer:
         self.lr_scheduler_d = lr_scheduler_d
 
         self.batch_transforms = batch_transforms
+        self.instance_transforms = instance_transforms
 
         # define dataloaders
         self.train_dataloader = dataloaders["train"]
@@ -128,7 +130,9 @@ class BaseTrainer:
         self.metrics = metrics
         self.train_metrics = MetricTracker(
             *self.config.writer.loss_names,
-            "grad_norm",
+            "generator_grad_norm",
+            "mpd_grad_norm",
+            "msd_grad_norm",
             *[m.name for m in self.metrics["train"]],
             writer=self.writer,
         )
@@ -241,8 +245,11 @@ class BaseTrainer:
             if batch_idx % self.log_step == 0:
                 self.writer.set_step((epoch - 1) * self.epoch_len + batch_idx)
                 self.logger.debug(
-                    "Train Epoch: {} {} Loss: {:.6f}".format(
-                        epoch, self._progress(batch_idx), batch["loss"].item()
+                    "Train Epoch: {} {} Generator Loss: {:.6f} Discriminator Loss: {:.6f}".format(
+                        epoch,
+                        self._progress(batch_idx),
+                        batch["g_loss"].item(),
+                        batch["d_loss"].item(),
                     )
                 )
                 self.writer.add_scalar(

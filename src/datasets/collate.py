@@ -32,6 +32,6 @@ def collate_fn(dataset_items: list[dict]):
         batch["audio"] = collate_tensor(dataset_items, "audio")
 
     if "spectrogram" in dataset_items[0]:
-        batch["spectrogram"] = collate_tensor(dataset_items, "spectrogram")
+        batch["spectrogram"] = collate_tensor(dataset_items, "spectrogram").squeeze(1)
 
     return batch
