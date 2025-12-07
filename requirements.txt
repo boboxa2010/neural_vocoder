@@ -1,7 +1,9 @@
 torch==2.2.0
 torchvision==0.17.0
-torchmetrics[audio]==1.8.2
 torchaudio==2.2.0
+torchmetrics==1.8.2
+pystoi
+pesq
 soundfile
 numpy==1.26.4
 tqdm
@@ -10,10 +12,9 @@ pandas
 wandb
 comet_ml
 hydra-core
-wget
-datasets
+gdown
+librosa
+
 black
 isort
 pre-commit
-scipy
-gdown

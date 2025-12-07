@@ -104,10 +104,10 @@ class GeneratorLoss(nn.Module):
         mel_loss = self.mel_loss(mel_fake, mel_true)
 
         return {
-            "loss": adv_loss
+            "generator_loss": adv_loss
             + self.feature_weight * feature_loss
             + self.mel_weight * mel_loss,
-            "adv_loss": adv_loss,
-            "feature_loss": feature_loss,
-            "mel_loss": mel_loss,
+            "generator_adv_loss": adv_loss,
+            "generator_feature_loss": feature_loss,
+            "generator_mel_loss": mel_loss,
         }

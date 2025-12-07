@@ -119,7 +119,7 @@ class MRF(nn.Module):
         for block in self.blocks:
             output += block(x)
 
-        return output
+        return output / len(self.blocks)
 
 
 class Generator(nn.Module):
