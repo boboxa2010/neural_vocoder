@@ -20,8 +20,10 @@ class BaseTrainer:
         model,
         criterion,
         metrics,
-        optimizer,
-        lr_scheduler,
+        optimizer_g,
+        optimizer_d,
+        lr_scheduler_g,
+        lr_scheduler_d,
         config,
         device,
         dataloaders,
@@ -38,9 +40,12 @@ class BaseTrainer:
             metrics (dict): dict with the definition of metrics for training
                 (metrics[train]) and inference (metrics[inference]). Each
                 metric is an instance of src.metrics.BaseMetric.
-            optimizer (Optimizer): optimizer for the model.
-            lr_scheduler (LRScheduler): learning rate scheduler for the
-                optimizer.
+            optimizer_g (Optimizer): optimizer for the generator.
+            optimizer_d (Optimizer): optimizer for the discriminator.
+            lr_scheduler_g (LRScheduler): learning rate scheduler for the
+                optimizer_g.
+            lr_scheduler_d (LRScheduler): learning rate scheduler for the
+                optimizer_d.
             config (DictConfig): experiment config containing training config.
             device (str): device for tensors and model.
             dataloaders (dict[DataLoader]): dataloaders for different
@@ -68,8 +73,12 @@ class BaseTrainer:
 
         self.model = model
         self.criterion = criterion
-        self.optimizer = optimizer
-        self.lr_scheduler = lr_scheduler
+        self.optimizer_g = optimizer_g
+        self.optimizer_d = optimizer_d
+
+        self.lr_scheduler_g = lr_scheduler_g
+        self.lr_scheduler_d = lr_scheduler_d
+
         self.batch_transforms = batch_transforms
 
         # define dataloaders
@@ -218,7 +227,15 @@ class BaseTrainer:
                 else:
                     raise e
 
-            self.train_metrics.update("grad_norm", self._get_grad_norm())
+            self.train_metrics.update(
+                "generator_grad_norm", self._get_grad_norm(self.model.generator)
+            )
+            self.train_metrics.update(
+                "mpd_grad_norm", self._get_grad_norm(self.model.mpd)
+            )
+            self.train_metrics.update(
+                "msd_grad_norm", self._get_grad_norm(self.model.msd)
+            )
 
             # log current results
             if batch_idx % self.log_step == 0:
@@ -229,7 +246,10 @@ class BaseTrainer:
                     )
                 )
                 self.writer.add_scalar(
-                    "learning rate", self.lr_scheduler.get_last_lr()[0]
+                    "generator learning rate", self.lr_scheduler_g.get_last_lr()[0]
+                )
+                self.writer.add_scalar(
+                    "discriminator learning rate", self.lr_scheduler_d.get_last_lr()[0]
                 )
                 self._log_scalars(self.train_metrics)
                 self._log_batch(batch_idx, batch)
@@ -376,15 +396,26 @@ class BaseTrainer:
     def _clip_grad_norm(self):
         """
         Clips the gradient norm by the value defined in
-        config.trainer.max_grad_norm
+        config.trainer.max_grad_norm_g
+        config.trainer.max_grad_norm_d
         """
-        if self.config["trainer"].get("max_grad_norm", None) is not None:
+        if self.config["trainer"].get("max_grad_norm_g", None) is not None:
             clip_grad_norm_(
-                self.model.parameters(), self.config["trainer"]["max_grad_norm"]
+                self.model.generator.parameters(),
+                self.config["trainer"]["max_grad_norm_g"],
             )
 
+        if self.config["trainer"].get("max_grad_norm_d", None) is not None:
+            clip_grad_norm_(
+                self.model.mpd.parameters(), self.config["trainer"]["max_grad_norm_d"]
+            )
+            clip_grad_norm_(
+                self.model.msd.parameters(), self.config["trainer"]["max_grad_norm_d"]
+            )
+
+    @staticmethod
     @torch.no_grad()
-    def _get_grad_norm(self, norm_type=2):
+    def _get_grad_norm(model, norm_type=2):
         """
         Calculates the gradient norm for logging.
 
@@ -393,7 +424,7 @@ class BaseTrainer:
         Returns:
             total_norm (float): the calculated norm.
         """
-        parameters = self.model.parameters()
+        parameters = model.parameters()
         if isinstance(parameters, torch.Tensor):
             parameters = [parameters]
         parameters = [p for p in parameters if p.grad is not None]
@@ -467,8 +498,10 @@ class BaseTrainer:
             "arch": arch,
             "epoch": epoch,
             "state_dict": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "lr_scheduler": self.lr_scheduler.state_dict(),
+            "optimizer_g": self.optimizer_g.state_dict(),
+            "optimizer_d": self.optimizer_d.state_dict(),
+            "lr_scheduler_g": self.lr_scheduler_g.state_dict(),
+            "lr_scheduler_d": self.lr_scheduler_d.state_dict(),
             "monitor_best": self.mnt_best,
             "config": self.config,
         }
@@ -513,8 +546,10 @@ class BaseTrainer:
 
         # load optimizer state from checkpoint only when optimizer type is not changed.
         if (
-            checkpoint["config"]["optimizer"] != self.config["optimizer"]
-            or checkpoint["config"]["lr_scheduler"] != self.config["lr_scheduler"]
+            checkpoint["config"]["optimizer_g"] != self.config["optimizer_g"]
+            or checkpoint["config"]["lr_scheduler_g"] != self.config["lr_scheduler_g"]
+            or checkpoint["config"]["optimizer_d"] != self.config["optimizer_d"]
+            or checkpoint["config"]["lr_scheduler_d"] != self.config["lr_scheduler_d"]
         ):
             self.logger.warning(
                 "Warning: Optimizer or lr_scheduler given in the config file is different "
@@ -522,8 +557,10 @@ class BaseTrainer:
                 "are not resumed."
             )
         else:
-            self.optimizer.load_state_dict(checkpoint["optimizer"])
-            self.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            self.optimizer_g.load_state_dict(checkpoint["optimizer_g"])
+            self.optimizer_d.load_state_dict(checkpoint["optimizer_d"])
+            self.lr_scheduler_g.load_state_dict(checkpoint["lr_scheduler_g"])
+            self.lr_scheduler_d.load_state_dict(checkpoint["lr_scheduler_d"])
 
         self.logger.info(
             f"Checkpoint loaded. Resume training from epoch {self.start_epoch}"

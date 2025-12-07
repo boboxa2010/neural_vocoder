@@ -1,3 +1,4 @@
+from src.logger.utils import plot_spectrogram
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
 
@@ -34,18 +35,67 @@ class Trainer(BaseTrainer):
             metric_funcs = self.metrics["train"]
             self.optimizer.zero_grad()
 
-        outputs = self.model(**batch)
-        batch.update(outputs)
+        true_audio = batch["audio"]
+        spectrogram = batch["spectrogram"]
 
-        all_losses = self.criterion(**batch)
-        batch.update(all_losses)
+        fake_audio = self.model.generator(spectrogram)
+        batch["fake_audio"] = fake_audio
+
+        # discriminator
+        true_mpd_out, true_mpd_activations = self.model.mpd(true_audio)
+        fake_mpd_out, fake_mpd_activations = self.model.mpd(fake_audio.detach())
+
+        true_msd_out, true_msd_activations = self.model.msd(true_audio)
+        fake_msd_out, fake_msd_activations = self.model.msd(fake_audio.detach())
+
+        loss_mpd = self.criterion.discriminator(fake_mpd_out, true_mpd_out)
+        loss_msd = self.criterion.discriminator(fake_msd_out, true_msd_out)
+        d_loss = loss_mpd["loss"] + loss_msd["loss"]
+
+        batch.update(
+            {
+                "d_loss_mpd": loss_mpd["loss"],
+                "d_loss_msd": loss_msd["loss"],
+                "d_loss": d_loss,
+            }
+        )
 
         if self.is_train:
-            batch["loss"].backward()  # sum of all losses is always called loss
+            self.optimizer_d.zero_grad()
+            d_loss.backward()
             self._clip_grad_norm()
-            self.optimizer.step()
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.step()
+            self.optimizer_d.step()
+            if self.lr_scheduler_d is not None:
+                self.lr_scheduler_d.step()
+
+        # generator
+        fake_mpd_out, fake_mpd_activations = self.model.mpd(fake_audio)
+        fake_msd_out, fake_msd_activations = self.model.msd(fake_audio)
+
+        discriminators_fake = fake_mpd_out + fake_msd_out
+
+        features_fake = fake_mpd_activations + fake_msd_activations
+        features_true = true_mpd_activations + true_msd_activations
+
+        mel_fake = self.train_dataloader.dataset.get_spectrogram(fake_audio)
+        batch["fake_spectrogram"] = mel_fake
+
+        mel_true = batch["spectrogram"]
+
+        g_losses = self.criterion.generator(
+            discriminators_fake, features_fake, features_true, mel_fake, mel_true
+        )
+        batch.update(g_losses)
+
+        g_loss = g_losses["loss"]
+
+        if self.is_train:
+            self.optimizer_g.zero_grad()
+            g_loss.backward()
+            self._clip_grad_norm()
+            self.optimizer_g.step()
+            if self.lr_scheduler_g is not None:
+                self.lr_scheduler_g.step()
 
         # update metrics for each loss (in case of multiple losses)
         for loss_name in self.config.writer.loss_names:
@@ -72,8 +122,20 @@ class Trainer(BaseTrainer):
 
         # logging scheme might be different for different partitions
         if mode == "train":  # the method is called only every self.log_step steps
-            # Log Stuff
-            pass
+            self.log_spectrogram(batch["spectrogram"], "true_spectrogram")
+            self.log_spectrogram(batch["fake_spectrogram"], "fake_spectrogram")
+            self.log_audio(audio_name="true_audio", audio=batch["audio"][0])
+            self.log_audio(audio_name="fake_audio", audio=batch["fake_audio"][0])
         else:
-            # Log Stuff
-            pass
+            self.log_spectrogram(batch["spectrogram"], "true_spectrogram")
+            self.log_spectrogram(batch["fake_spectrogram"], "fake_spectrogram")
+            self.log_audio(audio_name="true_audio", audio=batch["audio"][0])
+            self.log_audio(audio_name="fake_audio", audio=batch["fake_audio"][0])
+
+    def log_spectrogram(self, spectrogram, spectrogram_name="spectrogram", **batch):
+        spectrogram_for_plot = spectrogram[0].detach().cpu()
+        image = plot_spectrogram(spectrogram_for_plot)
+        self.writer.add_image(spectrogram_name, image)
+
+    def log_audio(self, audio_name, audio, **batch):
+        self.writer.add_audio(audio_name, audio, 22050)
