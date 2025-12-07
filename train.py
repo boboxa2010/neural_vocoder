@@ -35,7 +35,7 @@ def main(config):
 
     # setup data_loader instances
     # batch_transforms should be put on device
-    dataloaders, batch_transforms = get_dataloaders(config, device)
+    dataloaders, batch_transforms, instance_transforms = get_dataloaders(config, device)
 
     # build model architecture, then print to console
     model = instantiate(config.model).to(device)
@@ -48,7 +48,7 @@ def main(config):
     # build optimizers, learning rate schedulers
     generator_params = filter(lambda p: p.requires_grad, model.generator.parameters())
     discriminator_params = list(model.mpd.parameters()) + list(model.msd.parameters())
-    
+
     optimizer_g = instantiate(config.optimizer_g, params=generator_params)
     optimizer_d = instantiate(config.optimizer_d, params=discriminator_params)
 
@@ -74,6 +74,7 @@ def main(config):
         logger=logger,
         writer=writer,
         batch_transforms=batch_transforms,
+        instance_transforms=instance_transforms,
         skip_oom=config.trainer.get("skip_oom", True),
     )
 

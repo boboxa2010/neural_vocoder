@@ -1,0 +1,39 @@
+defaults:
+  - model: hifi_gan_v1
+  - writer: cometml
+  - metrics: dummy
+  - datasets: train
+  - dataloader: main
+  - transforms: main
+  - _self_
+optimizer_g:
+  _target_: torch.optim.AdamW
+  lr: 0.0002
+  betas: [0.8, 0.99]
+optimizer_d:
+  _target_: torch.optim.AdamW
+  lr: 0.0002
+  betas: [0.8, 0.99]
+lr_scheduler_g:
+  _target_: torch.optim.lr_scheduler.StepLR
+  gamma: 0.999
+  step_size: ${trainer.epoch_len}
+lr_scheduler_d:
+  _target_: torch.optim.lr_scheduler.StepLR
+  gamma: 0.999
+  step_size: ${trainer.epoch_len}
+loss_function:
+  _target_: src.loss.HiFiGANLoss
+trainer:
+  log_step: 50
+  n_epochs: 100
+  epoch_len: 370
+  device_tensors: ["audio", "spectrogram"]
+  resume_from: null
+  device: auto
+  override: False
+  monitor: "off"
+  save_period: 5
+  early_stop: ${trainer.n_epochs}
+  save_dir: "saved"
+  seed: 1
