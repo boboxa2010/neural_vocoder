@@ -33,13 +33,12 @@ class Trainer(BaseTrainer):
         metric_funcs = self.metrics["inference"]
         if self.is_train:
             metric_funcs = self.metrics["train"]
-            self.optimizer.zero_grad()
 
         true_audio = batch["audio"]
         spectrogram = batch["spectrogram"]
 
-        fake_audio = self.model.generator(spectrogram)
-        batch["fake_audio"] = fake_audio
+        fake_audio = self.model.generator(spectrogram)[:, :, : true_audio.shape[-1]]
+        batch["fake_audio"] = fake_audio.squeeze(1)
 
         # discriminator
         true_mpd_out, true_mpd_activations = self.model.mpd(true_audio)
@@ -48,8 +47,8 @@ class Trainer(BaseTrainer):
         true_msd_out, true_msd_activations = self.model.msd(true_audio)
         fake_msd_out, fake_msd_activations = self.model.msd(fake_audio.detach())
 
-        loss_mpd = self.criterion.discriminator(fake_mpd_out, true_mpd_out)
-        loss_msd = self.criterion.discriminator(fake_msd_out, true_msd_out)
+        loss_mpd = self.criterion.discriminator_loss(fake_mpd_out, true_mpd_out)
+        loss_msd = self.criterion.discriminator_loss(fake_msd_out, true_msd_out)
         d_loss = loss_mpd["loss"] + loss_msd["loss"]
 
         batch.update(
@@ -69,6 +68,9 @@ class Trainer(BaseTrainer):
                 self.lr_scheduler_d.step()
 
         # generator
+        true_mpd_out, true_mpd_activations = self.model.mpd(true_audio)
+        true_msd_out, true_msd_activations = self.model.msd(true_audio)
+
         fake_mpd_out, fake_mpd_activations = self.model.mpd(fake_audio)
         fake_msd_out, fake_msd_activations = self.model.msd(fake_audio)
 
@@ -77,21 +79,21 @@ class Trainer(BaseTrainer):
         features_fake = fake_mpd_activations + fake_msd_activations
         features_true = true_mpd_activations + true_msd_activations
 
-        mel_fake = self.train_dataloader.dataset.get_spectrogram(fake_audio)
-        batch["fake_spectrogram"] = mel_fake
+        mel_fake = self.instance_transforms["train"]["get_spectrogram"](
+            batch["fake_audio"]
+        )
+        batch["fake_spectrogram"] = mel_fake.squeeze(1)
 
         mel_true = batch["spectrogram"]
 
-        g_losses = self.criterion.generator(
+        g_losses = self.criterion.generator_loss(
             discriminators_fake, features_fake, features_true, mel_fake, mel_true
         )
         batch.update(g_losses)
 
-        g_loss = g_losses["loss"]
-
         if self.is_train:
             self.optimizer_g.zero_grad()
-            g_loss.backward()
+            g_losses["g_loss"].backward()
             self._clip_grad_norm()
             self.optimizer_g.step()
             if self.lr_scheduler_g is not None:
