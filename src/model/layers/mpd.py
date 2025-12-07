@@ -46,7 +46,7 @@ class MPDSubBlock(nn.Module):
                     out_channels=1024,
                     kernel_size=(5, 1),
                     stride=(1, 1),
-                    padding=(1, 0),
+                    padding=(2, 0),
                 )
             ),
             nn.LeakyReLU(negative_slope=negative_slope),
@@ -69,8 +69,8 @@ class MPDSubBlock(nn.Module):
         Returns:
             Tensor: (B, C, ⌈T / period⌉, period)
         """
-
-        x = torch.nn.functional.pad(x, (0, self.period - (x.shape[2] % self.period)))
+        pad_size = (self.period - (x.shape[2] % self.period)) % self.period
+        x = torch.nn.functional.pad(x, (0, pad_size), mode="reflect")
         return x.reshape(x.shape[0], x.shape[1], -1, self.period)
 
     def forward(self, x):
