@@ -25,13 +25,19 @@ def collate_fn(dataset_items: list[dict]):
 
     batch = {"text": collate_list(dataset_items, "text")}
 
-    if "audio_path" in dataset_items[0]:
+    if "text_id" in dataset_items[0]:
+        batch["text_id"] = collate_list(dataset_items, "text_id")
+
+    if "audio_path" in dataset_items[0] and dataset_items[0]["audio_path"] is not None:
         batch["audio_path"] = collate_list(dataset_items, "audio_path")
 
-    if "audio" in dataset_items[0]:
+    if "audio" in dataset_items[0] and dataset_items[0]["audio"] is not None:
         batch["audio"] = collate_tensor(dataset_items, "audio")
 
-    if "spectrogram" in dataset_items[0]:
+    if (
+        "spectrogram" in dataset_items[0]
+        and dataset_items[0]["spectrogram"] is not None
+    ):
         batch["spectrogram"] = collate_tensor(dataset_items, "spectrogram").squeeze(1)
 
     return batch

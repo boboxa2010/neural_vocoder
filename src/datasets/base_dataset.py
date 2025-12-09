@@ -81,6 +81,7 @@ class BaseDataset(Dataset):
 
         audio_path = data_dict.get("path", None)
         text = data_dict.get("text")
+        text_id = data_dict.get("text_id", None)
 
         if audio_path:
             audio = self.load_audio(audio_path)
@@ -90,6 +91,7 @@ class BaseDataset(Dataset):
         instance_data = {
             "audio": audio,
             "text": text,
+            "text_id": text_id,
             "audio_path": audio_path,
         }
 

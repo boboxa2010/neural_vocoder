@@ -22,7 +22,7 @@ class CustomDirDataset(BaseDataset):
 
         data = []
         for path in Path(transcription_dir).iterdir():
-            entry = {"uttid": path.stem}
+            entry = {"text_id": path.stem}
             with path.open() as f:
                 entry["text"] = f.read().strip()
 

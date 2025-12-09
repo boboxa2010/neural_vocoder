@@ -89,6 +89,7 @@ class LJSpeechDataset(BaseDataset):
                     {
                         "path": str(wav_path.resolve()),
                         "text": text,
+                        "text_id": file_id,
                         "audio_len": audio_len,
                     }
                 )
