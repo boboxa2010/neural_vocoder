@@ -10,9 +10,7 @@ class FastSpeech2Wrapper:
         device="cpu",
     ):
         self.device = device
-        self.tts = FastSpeech2.from_hparams(source=tts_model, savedir=savedir).to(
-            device
-        )
+        self.tts = FastSpeech2.from_hparams(source=tts_model, savedir=savedir)
 
     @torch.no_grad()
     def generate(self, text):
