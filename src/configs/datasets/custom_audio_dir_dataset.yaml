@@ -1,0 +1,5 @@
+inference:
+  _target_: src.datasets.CustomAudioDirDataset
+  path: null
+  chunk_size: null
+  instance_transforms: ${transforms.instance_transforms.inference}
