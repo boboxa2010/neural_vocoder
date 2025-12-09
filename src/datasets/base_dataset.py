@@ -23,6 +23,7 @@ class BaseDataset(Dataset):
         index,
         target_sr=22050,
         chunk_size=8192,
+        padding_mode: str | None = None,
         limit=None,
         max_audio_length=None,
         max_text_length=None,
@@ -58,6 +59,7 @@ class BaseDataset(Dataset):
 
         self.target_sr = target_sr
         self.chunk_size = chunk_size
+        self.padding_mode = padding_mode
         self.instance_transforms = instance_transforms
 
     def __getitem__(self, ind):
@@ -125,7 +127,12 @@ class BaseDataset(Dataset):
             audio = audio[start : start + self.chunk_size]
         else:
             pad_amount = self.chunk_size - audio.size(0)
-            audio = torch.nn.functional.pad(audio, (0, pad_amount))
+            if self.padding_mode is not None:
+                audio = torch.nn.functional.pad(
+                    audio, (0, pad_amount), mode=self.padding_mode
+                )
+            else:
+                audio = torch.nn.functional.pad(audio, (0, pad_amount))
 
         return audio.unsqueeze(0)
 
