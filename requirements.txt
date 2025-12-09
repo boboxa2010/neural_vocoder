@@ -14,6 +14,10 @@ comet_ml
 hydra-core
 gdown
 librosa
+speechbrain
+transformers==4.36.2
+sentencepiece
+soxr
 
 black
 isort
