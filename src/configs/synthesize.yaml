@@ -1,0 +1,27 @@
+defaults:
+  - model: hifi_gan_v1
+  - metrics: dummy
+  - datasets: custom_dir_dataset
+  - dataloader: inference
+  - transforms: main
+  - _self_
+
+sr: 22050
+
+acoustic_model:
+  _target_: src.acoustic_model.FastSpeech2Wrapper
+  tts_model: "speechbrain/tts-fastspeech2-ljspeech"
+  savedir: "pretrained_models/tts-fastspeech2-ljspeech"
+  device: ${synthesizer.device}
+
+synthesizer:
+  from_pretrained: null
+  device_tensors: []
+  device: cpu
+  seed: 1
+  save_path: "synthesize_default"
+  use_dataset: true
+  text: null
+  output_name: test
+  sample_rate: ${sr}
+
