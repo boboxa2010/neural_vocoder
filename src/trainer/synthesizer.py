@@ -189,8 +189,11 @@ class Synthesizer(BaseTrainer):
                 mels.append(mel.to(self.device))
 
         audios = []
-        for mel in mels:
+        for i, mel in enumerate(mels):
             audio = self.model.generator(mel).squeeze(0)
+            if "audio" in batch:
+                # trim to original audio length
+                audio = audio[:, : batch["audio"][i].shape[-1]]
             audios.append(audio)
 
         if metrics is not None and self.metrics is not None:

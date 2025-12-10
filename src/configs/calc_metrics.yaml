@@ -1,0 +1,13 @@
+paths:
+  ground_truth: null # path to dir with audio files
+  predictions: null  # path to dir with audio files
+device: "cpu"
+sample_rate: 16000
+metrics:
+  - _target_: src.metrics.PESQ
+    name: "PESQ"
+    fs: ${sample_rate}
+    mode: "wb"
+  - _target_: src.metrics.STOI
+    name: "STOI"
+    fs: ${sample_rate}
