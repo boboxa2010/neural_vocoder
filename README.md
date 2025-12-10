@@ -50,19 +50,37 @@ $ python3 train.py -cn=CONFIG_NAME HYDRA_CONFIG_ARGUMENTS
 
 Where `CONFIG_NAME` is a config from `src/configs` and `HYDRA_CONFIG_ARGUMENTS` are optional arguments.
 
-To run inference (evaluate the model or save predictions):
+To run e2e synthesis:
 
-<!-- ```bash
-$ python3 inference.py datasets=inference dataloader=main inferencer.save_path=/save/path inferencer.from_pretrained=/model/path model=rtfs_u_net_tiny
+```bash
+$ python synthesize.py \
+        synthesizer.from_pretrained=checkpoints/model.pth \
+        datasets=custom_dir_dataset \
+        datasets.inference.path=data/datasets/custom_dataset
+```
+
+To run e2e synthesis on single utterance:
+
+```bash
+$ python synthesize.py \
+        synthesizer.from_pretrained=checkpoints/model.pth \
+        "synthesizer.text='I am MOP and I love Yandex'" \
+        synthesizer.output_name="test_utterance"
+```
+
+To run vocoder on single utterance:
+
+```bash
+$ python synthesize.py \
+        synthesizer.from_pretrained=checkpoints/model.pth \
+        datasets=custom_audio_dir_dataset \
+        datasets.inference.path=data/datasets/custom_dataset \
+        +synthesizer.resynthesize=True
 ```
 
 The results will be saved in next path:
-` ROOT_PATH/data/saved/{inferencer.save_path}`
+` ROOT_PATH/data/saved/{synthezer.save_path}`
 
-We use next configs with implemented models:
-- dprnn.yaml
-- rtfs_net.yaml -->
-TODO
 
 All the models configs can be found in `src/configs/model`.
 
@@ -72,7 +90,7 @@ All the models configs can be found in `src/configs/model`.
 To load the final checkpoint, run the following command:
 
 ```bash
-$ ./download_yadisk.sh TODO content/avss/model.pth
+$ ./download_yadisk.sh https://disk.yandex.ru/d/B9B_NgMlQgu2xw checkpoints/model.pth
 ```
 
 ## How to load your dataset
@@ -97,7 +115,7 @@ $ ./download_dataset.sh dataset_link_on_yadisk content/datasets/custom_dataset
 ## How to reproduce the best result
 
 ```bash
-$ python3 train.py -cn=hifi_gan_v1
+$ python3 train.py -cn=hifi_gan_v1 datasets.train.chunk_size=8192 datasets.val.chunk_size=8192 +datasets.train.padding_mode=reflect +datasets.val.padding_mode=reflect writer.run_name=hifi_gan_chunk_8192_reflect_long trainer.n_epochs=250
 ```
 
 ## Credits
