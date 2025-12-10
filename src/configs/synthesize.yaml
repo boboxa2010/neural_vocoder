@@ -20,8 +20,6 @@ synthesizer:
   device: cpu
   seed: 1
   save_path: "synthesize_default"
-  use_dataset: true
   text: null
   output_name: test
   sample_rate: ${sr}
-

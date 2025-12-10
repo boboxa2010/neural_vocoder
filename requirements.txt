@@ -18,6 +18,7 @@ speechbrain
 transformers==4.36.2
 sentencepiece
 soxr
+wget
 
 black
 isort

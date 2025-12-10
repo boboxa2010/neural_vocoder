@@ -181,6 +181,9 @@ class Synthesizer(BaseTrainer):
                 mel = self.mel_spec(wav.to(self.device))
                 mels.append(mel)
         else:
+            if "text" not in batch:
+                raise ValueError("Does not contain text")
+
             for text in batch["text"]:
                 mel = self.acoustic_model.generate(text=text)
                 mels.append(mel.to(self.device))
