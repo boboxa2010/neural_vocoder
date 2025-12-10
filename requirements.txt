@@ -21,7 +21,7 @@ soxr
 wget
 
 git+https://github.com/AndreevP/wvmos
-ml_dtypes==0.3.1
+ml_dtypes==0.5.1
 
 black
 isort
